@@ -1,0 +1,19 @@
+# Allowlist: keep only application source, build requirements and documentation.
+# Add an explicit exception below when introducing a new project file type.
+/*
+!/.gitignore
+!/README.md
+!/build.ps1
+!/app.manifest
+
+# Build resource and .NET runtime configuration (not generated binaries).
+!/TXT文件定位器.ico
+!/TXT文件定位器.exe.config
+
+# Application source used by build.ps1.
+!/src/
+/src/*
+!/src/*.cs
+
+# Everything else remains ignored, including tests, test.ps1, EXEs, artifacts, logs,
+# editor settings, temporary files and local assistant configuration.
