@@ -27,6 +27,20 @@ namespace NotepadFileLocator
                 if (!string.Equals(process.ProcessName, "Notepad", StringComparison.OrdinalIgnoreCase))
                     return Fail("此快捷键仅支持 Windows 自带记事本。");
             }
+            ResolveResult direct;
+            if (MemoryPathReader.TryRead(window, out direct))
+            {
+                if (Native.GetForegroundWindow() != window)
+                    return Fail("前台窗口已改变，请回到记事本后重试。");
+                if (expected != null && (direct.Identity != expected.Identity ||
+                    direct.SaveRequired != expected.SaveRequired ||
+                    !string.Equals(direct.Path, expected.Path, StringComparison.OrdinalIgnoreCase)))
+                    return Fail("当前窗口或标签页已改变，请重新双击 Esc。");
+                return direct;
+            }
+            // Never reuse a memory snapshot through the different UIA identity scheme.
+            if (expected != null && expected.Identity != null && expected.Identity.StartsWith("memory:", StringComparison.Ordinal))
+                return Fail("无法再次核对当前文档，请重新双击 Esc。");
             AutomationElement root = AutomationElement.FromHandle(window);
             var tabs = root.FindAll(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem));

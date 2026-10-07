@@ -7,13 +7,13 @@
 !/app.manifest
 
 # Build resource and .NET runtime configuration (not generated binaries).
-!/TXT文件定位器.ico
-!/TXT文件定位器.exe.config
+!/NotepadFileLocator.ico
+!/NotepadFileLocator.exe.config
 
 # Application source used by build.ps1.
 !/src/
 /src/*
 !/src/*.cs
 
-# Everything else remains ignored, including tests, test.ps1, EXEs, artifacts, logs,
+# Everything else remains ignored, including research, tests, EXEs, artifacts, logs,
 # editor settings, temporary files and local assistant configuration.

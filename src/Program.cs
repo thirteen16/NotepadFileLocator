@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: System.Reflection.AssemblyTitle("TXT 文件定位器")]
+[assembly: System.Reflection.AssemblyTitle("NotepadFileLocator")]
 [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
 
 namespace NotepadFileLocator
@@ -42,7 +42,7 @@ namespace NotepadFileLocator
                 }
                 catch (Exception error)
                 {
-                    MessageBox.Show("启动失败：" + error.Message, "TXT 文件定位器", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("启动失败：" + error.Message, "NotepadFileLocator", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return 1;
                 }
                 finally { mutex.ReleaseMutex(); }
@@ -101,7 +101,14 @@ namespace NotepadFileLocator
                             Native.GetForegroundWindow() != window)
                             result.Error = "当前窗口或标签页已改变，请重新双击 Esc。";
                         else
-                            Marshal.ThrowExceptionForHR(Native.SHOpenFolderAndSelectItems(item, 0, IntPtr.Zero, 0));
+                        {
+                            using (ExplorerForeground.Begin(result.Path, window))
+                            {
+                                Marshal.ThrowExceptionForHR(Native.SHOpenFolderAndSelectItems(item, 0, IntPtr.Zero, 0));
+                                if (!ExplorerForeground.WaitActivated(result.Path))
+                                    result.Error = "未能确认资源管理器在前台打开，请重试。";
+                            }
+                        }
                     }
                 }
                 catch (Exception) { result.Error = "无法在资源管理器中定位文件，请确认文件路径仍然有效。"; }
@@ -136,6 +143,7 @@ namespace NotepadFileLocator
         private bool paused;
         private bool busy;
         private bool disposing;
+        private HelpWindow helpWindow;
 
         internal LocatorContext()
         {
@@ -148,7 +156,7 @@ namespace NotepadFileLocator
                 paused = !paused;
                 pause.Checked = paused;
                 gesture.CancelPending();
-                tray.Text = paused ? "TXT 文件定位器（已暂停）" : "TXT 文件定位器：记事本中双击 Esc";
+                tray.Text = paused ? "NotepadFileLocator（已暂停）" : "NotepadFileLocator：记事本中双击 Esc";
             });
             menu.Items.Add(pause);
             startup = new ToolStripMenuItem("开机自动启动", null, delegate { ToggleStartup(); });
@@ -156,7 +164,7 @@ namespace NotepadFileLocator
             menu.Opening += delegate { startup.Checked = StartupEnabled(); };
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("退出", null, delegate { ExitThread(); });
-            tray = new NotifyIcon { Icon = icon, Text = "TXT 文件定位器：记事本中双击 Esc", ContextMenuStrip = menu, Visible = true };
+            tray = new NotifyIcon { Icon = icon, Text = "NotepadFileLocator：记事本中双击 Esc", ContextMenuStrip = menu, Visible = true };
             tray.DoubleClick += delegate { ShowHelp(); };
             callback = OnKeyboard;
             hook = Native.SetWindowsHookEx(13, callback, Native.GetModuleHandle(null), 0);
@@ -252,13 +260,14 @@ namespace NotepadFileLocator
 
         private void Notify(string text, ToolTipIcon kind)
         {
-            if (!disposing) tray.ShowBalloonTip(4000, "TXT 文件定位器", text, kind);
+            if (!disposing) tray.ShowBalloonTip(4000, "NotepadFileLocator", text, kind);
         }
 
         private void ShowHelp()
         {
-            MessageBox.Show("1. 在 Windows 11 自带记事本中选中文件标签。\n2. 在文档编辑区，450 毫秒内按两次 Esc。\n3. 已保存文件会在资源管理器中定位；新文档会弹出另存为窗口。\n\n支持多标签、多窗口和同名文件。新文档保存后，再双击 Esc 即可定位。\n单次 Esc 保持原有功能；长按不会触发。\n右键托盘图标可暂停、设置开机启动或退出。\n\n兼容性取决于记事本是否提供标签的完整路径。",
-                "TXT 文件定位器", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (helpWindow == null || helpWindow.IsDisposed) helpWindow = new HelpWindow(icon);
+            helpWindow.Show();
+            helpWindow.Activate();
         }
 
         private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -295,6 +304,7 @@ namespace NotepadFileLocator
                 if (stop != null) stop.Dispose();
                 if (tray != null) { tray.Visible = false; tray.Dispose(); }
                 if (menu != null) menu.Dispose();
+                if (helpWindow != null) helpWindow.Dispose();
                 if (icon != null) icon.Dispose();
                 dispatcher.Dispose();
             }
